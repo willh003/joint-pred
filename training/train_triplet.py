@@ -126,7 +126,6 @@ def val_step(model, val_loader, optimizer, distance_fn, criterion, device='cuda'
     # Validation
     with torch.no_grad():
         for i, (img_ref, img_0, img_1, target) in tqdm(enumerate(val_loader), leave=False, total=len(val_loader), desc="Validation"):
-            breakpoint()
             loss, batch_acc = forward_similarity_model(model, distance_fn, criterion,
                                                     img_ref, img_0, img_1,
                                                     target, device)

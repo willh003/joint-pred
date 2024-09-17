@@ -16,12 +16,12 @@ def collate_fn_generator(transform):
 
     def collate_fn(batch):
         images = torch.stack([transform(item['image']) for item in batch])
-        xpos = torch.stack([torch.tensor(item['joint_xpos'], dtype=torch.float32) for item in batch])
+        xpos = torch.stack([torch.tensor(item['joint_pos'], dtype=torch.float32) for item in batch])
         return images, xpos
 
     return collate_fn
 
-def load_joint_dataset(splits=["train", "val"], dataset_path="sharehum/mujoco_ft_v3", use_hf=True):
+def load_joint_dataset(splits=["train", "val"], dataset_path="sharehum/mujoco_ft_v3", use_hf=True, use_xpos=True):
     """
     if use_hf: dataset_path will be the hf path
 
@@ -59,18 +59,24 @@ def load_joint_dataset(splits=["train", "val"], dataset_path="sharehum/mujoco_ft
             split_dict[split] = dataset
     else:
         for split in splits:
-            dataset = TwoAFCJointDatasetMujoco(dataset_path, split=split, include_ids=True)
+            dataset = TwoAFCJointDatasetMujoco(dataset_path, split=split, include_ids=True, use_xpos=use_xpos)
             split_dict[split] = dataset
     
     return split_dict
 
 class TwoAFCJointDatasetMujoco(Dataset):
     def __init__(self, root_dir: str, split: str = "train", load_size: int = 224,
-                 interpolation: transforms.InterpolationMode = transforms.InterpolationMode.BICUBIC, **kwargs):
+                 interpolation: transforms.InterpolationMode = transforms.InterpolationMode.BICUBIC,
+                 use_xpos=True, **kwargs):
+        """
+        use_xpos: if true, use global world coords. Else, use qpos (relative rotations)
+        """
+        
         self.root_dir = root_dir
         self.split = split
         self.load_size = load_size
         self.interpolation = interpolation
+        self.use_xpos=use_xpos
 
         if self.split in ["train", "val", "test", "manual_test"]:
             with open(op.join(self.root_dir, f"{self.split}_split.json"), "r") as f:
@@ -94,17 +100,20 @@ class TwoAFCJointDatasetMujoco(Dataset):
             img_path = self.get_image_path_from_split_ref(self.split_file[split_file_idx]["neg"])
 
         image = Image.open(img_path)
-        joint_xpos = np.load(self._convert_image_path_to_geom_xpos_path(img_path))
-        
+
+        if self.use_xpos:
+            joint_pos = np.load(self._convert_image_path_to_geom_xpos_path(img_path))
+        else:
+            joint_pos = np.load(self._convert_image_path_to_qpos_path(img_path))
         # IMPORTANT
         # Get the positions relative to the torso
         # In v3 mujoco, this has already been done for sequence data, but not the rest
         if "seq" not in img_path:
-            joint_xpos = joint_xpos - joint_xpos[1]
+            joint_pos = joint_pos - joint_pos[1]
 
         item = {
             'image': image,
-            'joint_xpos': joint_xpos
+            'joint_pos': joint_pos
             }
         return item
 
@@ -126,6 +135,12 @@ class TwoAFCJointDatasetMujoco(Dataset):
             return geom_xpos_path.replace("_pose.png", "_geom_xpos.npy")
         else:
             return geom_xpos_path.replace(".png", "_geom_xpos.npy")
+
+    def _convert_image_path_to_qpos_path(self, image_path):
+        if "anchor" in image_path and ("v3_body_distortion_arm" in image_path or "v3_flipping" in image_path or "v3_random_joints" in image_path):
+            return image_path.replace("_pose.png", "_joint_state.npy")
+        else:
+            return image_path.replace(".png", "_joint_state.npy")
 
     def get_image_path_from_split_ref(self, split_ref):
         """

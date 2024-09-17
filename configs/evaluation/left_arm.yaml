@@ -1,0 +1,7 @@
+name:
+  - left_arm
+gif_paths:
+  - "/share/portal/hw575/CrossQ/train_logs/2024-09-10-113620_sb3_sac_envr=left_arm_out_goal_only_euclidean_geom_xpos_rm=hand_engineered_s=9_nt=debug-sdtw/eval/1000000_rollouts.gif"
+  - "/share/portal/hw575/CrossQ/train_logs/2024-09-10-113620_sb3_sac_envr=left_arm_out_goal_only_euclidean_geom_xpos_rm=hand_engineered_s=9_nt=debug-sdtw/eval/10000_rollouts.gif"
+  - "/share/portal/hw575/CrossQ/train_logs/2024-09-10-113620_sb3_sac_envr=left_arm_out_goal_only_euclidean_geom_xpos_rm=hand_engineered_s=9_nt=debug-sdtw/eval/250000_rollouts.gif"    
+target_joint_state: /share/portal/hw575/CrossQ/create_demo/demos/left-arm-out_geom-xpos.npy

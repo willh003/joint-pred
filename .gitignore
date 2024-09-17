@@ -1,1 +1,2 @@
-train_logs/
+*logs/*
+*__pycache__*

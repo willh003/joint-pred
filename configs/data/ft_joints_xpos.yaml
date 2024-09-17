@@ -1,5 +1,5 @@
-name: triplets
+name: joints_xpos
 use_hf: false
 root: /share/portal/aw588/finetuning/data 
 hf_path: sharehum/mujoco_ft_v3
-joint_dim: 54 # 18 joints * 3 dimensions each
+use_xpos: true

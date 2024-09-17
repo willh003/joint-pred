@@ -1,0 +1,1 @@
+python -m training.train_joint_pos "training.target_joint_pos=/share/portal/hw575/CrossQ/create_demo/demos/left-arm-out_geom-xpos.npy" "training.output_dim=1" "training.lr=.0003"

@@ -1,0 +1,12 @@
+run_notes: null
+run_type: default
+test: False
+
+defaults:
+  - evaluation: left_arm
+  - training: resnet_linear # info on how the model was trained for eval
+  - _self_
+
+hydra:
+  run:
+    dir: ./eval_logs/${evaluation.name}/${now:%Y-%m-%d-%H%M%S}_model=${training.tag}_startpt=${training.start_from_pretrained}_freezebackbone=${training.freeze_backbone}_lr=${training.lr}nt=${run_notes}

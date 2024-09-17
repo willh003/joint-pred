@@ -1,8 +1,7 @@
-tag: resnet_linear
+tag: dino
 start_from_pretrained: True
 freeze_backbone: False
 checkpoint: null
-target_joint_pos: null
 output_dim: 54 # 18 joints * 3 dimensions each for joint geom xpos pos data
 seed: 1234
 lr: .016
