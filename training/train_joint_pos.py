@@ -19,6 +19,7 @@ from omegaconf import DictConfig, OmegaConf
 from datasets import load_dataset
 from data.compute_rewards import compute_rewards
 
+
 """
 Let S be the current joint state and T the target joint state
 In this setting, we condition on T, to get P(R | T) ~ f(S, T)
@@ -53,6 +54,7 @@ def forward_task_conditioned_model(model, img, gt_joint_pos, criterion, target_j
     target_joint_pos = target_joint_pos.to(device)
     
     pred_rewards = model(img)
+    
     gt_rewards = compute_rewards(target_joint_pos[None], gt_joint_pos).unsqueeze(1)
     loss = criterion(pred_rewards, gt_rewards)
     return loss
@@ -68,7 +70,9 @@ def forward_joint_model(model, img, joint_pos, criterion, device='cuda'):
     # Prepare data and send it to the proper device
     img = img.to(device)
     joint_pos = joint_pos.to(device)
-    joint_pos_flat = joint_pos.flatten(start_dim=1)
+    b, n_joints, d_joint = joint_pos.shape
+    
+    joint_pos_flat = joint_pos.view(b, n_joints*d_joint)
     
     joint_pos_pred = model(img)
 
@@ -85,18 +89,15 @@ def train_step(model, train_loader, optimizer, loss_fn, device='cuda'):
     end_event = torch.cuda.Event(enable_timing=True)
     start_time = time.time()
     total_forward_pass_time = 0.0
-
     # Training
     for i, (img, xpos) in tqdm(enumerate(train_loader), leave=False, total=len(train_loader), desc="Training"):
         
         start_event.record()
         optimizer.zero_grad()
-
+        #assert len(torch.nonzero(xpos[:, 1, :])) == 0, "Error: xpos was not normalized"
         loss = loss_fn(model, img, xpos, device)
-        
         loss.backward()
         optimizer.step()
-
         end_event.record()
         torch.cuda.synchronize()
         
@@ -146,9 +147,9 @@ def train(device, run, cfg, model, loss_fn, train_loader, val_loader):
             run.log({"val_loss": initial_val_loss, "epoch": epoch})
             logger.info(f"Epoch {epoch} initial (pre-ft) val_loss={initial_val_loss}")
 
-        epoch_train_loss = train_step(model, train_loader, optimizer, loss_fn, device)
-
+        epoch_train_loss = train_step(model, train_loader, optimizer, loss_fn, device)        
         epoch_val_loss = val_step(model, val_loader, loss_fn, device)
+
         run.log({"train_loss": epoch_train_loss, "val_loss": epoch_val_loss, "epoch": epoch})
         
         logger.info(f"Epoch {epoch} complete with train_loss={epoch_train_loss}, val_loss={epoch_val_loss}")
@@ -160,6 +161,7 @@ def train(device, run, cfg, model, loss_fn, train_loader, val_loader):
             torch.save(model.state_dict(), ckpt_path)
 
     logger.info('Finished Training')
+    return model 
 
 @hydra.main(config_name="train", config_path="../configs")
 def main(cfg: DictConfig):
@@ -180,12 +182,17 @@ def main(cfg: DictConfig):
         model.forward = model.embed
     elif "dino" in model_name:
         model, transform = load_dino_for_ft(device, output_dim=cfg.training.output_dim)
-
-    dataset = load_joint_dataset(splits=["train", "val"], 
+    
+    dataset = load_joint_dataset(splits=["train", "val", "mini"], 
                         dataset_path=cfg.data.hf_path if cfg.data.use_hf else cfg.data.root, 
                         use_hf=cfg.data.use_hf,
                         use_xpos=cfg.data.use_xpos)
-    train_dataset = dataset["train"]
+    
+    mini_sanity_check = False
+    if mini_sanity_check:
+        train_dataset = dataset["mini"]
+    else:
+        train_dataset = dataset["train"]
     val_dataset = dataset["val"]
 
     collate_fn = collate_fn_generator(transform)
@@ -193,13 +200,13 @@ def main(cfg: DictConfig):
 
     if cfg.training.target_joint_pos is not None:
         target_joint_pos = torch.as_tensor(np.load(cfg.training.target_joint_pos)).float().to(device)
+        target_joint_pos = target_joint_pos - target_joint_pos[:, 1, :].unsqueeze(1) # normalize targets
 
         def loss_fn(model, img, gt_joint_pos, device):
             return forward_task_conditioned_model(model, img, gt_joint_pos, criterion, target_joint_pos, device)  
     else:
         def loss_fn(model, img, gt_joint_pos, device):
-            return forward_task_conditioned_model(model, img, gt_joint_pos, criterion, device)  
-
+            return forward_joint_model(model, img, gt_joint_pos, criterion, device)  
 
     with wandb.init(
         project=cfg.logging.wandb_project,
@@ -213,7 +220,8 @@ def main(cfg: DictConfig):
         train_loader = DataLoader(train_dataset, batch_size=cfg.training.batch_size, num_workers=cfg.training.num_cpu_workers, shuffle=True, collate_fn=collate_fn)
         val_loader = DataLoader(val_dataset, batch_size=cfg.training.batch_size, num_workers=cfg.training.num_cpu_workers, shuffle=False, collate_fn=collate_fn)
 
-        train(device, wandb_run, cfg, model, loss_fn, train_loader, val_loader)
+        model = train(device, wandb_run, cfg, model, loss_fn, train_loader, val_loader)
+        return model, transform
 
 if __name__=="__main__":
     main()

@@ -10,7 +10,7 @@ import torch
 from torch.utils.data import DataLoader
 
 from training.models import load_resnet50_for_ft
-from training.train_joint_pos import val_step, forward_joint_model, forward_task_conditioned_model
+from training.train_joint_pos import val_step
 from data.joint_dataset import load_joint_dataset, collate_fn_generator
 
 from data.compute_rewards import compute_rewards

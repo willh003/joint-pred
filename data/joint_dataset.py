@@ -78,14 +78,13 @@ class TwoAFCJointDatasetMujoco(Dataset):
         self.interpolation = interpolation
         self.use_xpos=use_xpos
 
-        if self.split in ["train", "val", "test", "manual_test"]:
+        if self.split in ["train", "val", "test", "manual_test", "mini"]:
             with open(op.join(self.root_dir, f"{self.split}_split.json"), "r") as f:
                 self.split_file = json.load(f)
         else:
             raise ValueError(f'Invalid split: {split}')
-
     def __len__(self):
-        return len(self.split_file * 3) # 3 samples per item in the split file (for the purposes of joints)
+        return len(self.split_file) * 3 # 3 samples per item in the split file (for the purposes of joints)
 
     def __getitem__(self, idx):
         # For sequence data: subtract torso position 
@@ -103,13 +102,14 @@ class TwoAFCJointDatasetMujoco(Dataset):
 
         if self.use_xpos:
             joint_pos = np.load(self._convert_image_path_to_geom_xpos_path(img_path))
+            joint_pos = joint_pos - joint_pos[1] # center xpos on the torso
         else:
+            # do not center qpos
             joint_pos = np.load(self._convert_image_path_to_qpos_path(img_path))
+            joint_pos = np.expand_dims(joint_pos, axis=1)
         # IMPORTANT
         # Get the positions relative to the torso
         # In v3 mujoco, this has already been done for sequence data, but not the rest
-        if "seq" not in img_path:
-            joint_pos = joint_pos - joint_pos[1]
 
         item = {
             'image': image,

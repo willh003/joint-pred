@@ -29,7 +29,7 @@ class ProjectEmbedding(torch.nn.Module):
         pred = self.proj(emb)
         return pred
 
-def load_dino_for_ft(device, output_dim, freeze_backbone=False):
+def load_dino_for_ft(device, output_dim, freeze_backbone=False, checkpoint = None):
     embed_module = torch.hub.load('facebookresearch/dinov2', 'dinov2_vitl14_reg')
     DINO_EMB_DIM = 1024 # using dino l which has dim 1024
     model = ProjectEmbedding(embed_module, DINO_EMB_DIM, output_dim)
@@ -40,6 +40,10 @@ def load_dino_for_ft(device, output_dim, freeze_backbone=False):
         model.embed_module.requires_grad_(False)
     else:
         model.train().requires_grad_()
+
+    if checkpoint is not None:
+        state_dict = torch.load(checkpoint)
+        model.load_state_dict(state_dict)
 
     preprocess = transforms.Compose([
         transforms.Resize(256),
@@ -76,6 +80,7 @@ def load_resnet50_for_ft(device, output_dim=256, pretrained=True, freeze_backbon
         torch.nn.Module: resnet50 torch model
         torch.transforms.Transform: transform to apply to PIL images before input
     """
+
     # Initialize pre-trained model
     model = models.resnet50(pretrained)
 
@@ -85,7 +90,8 @@ def load_resnet50_for_ft(device, output_dim=256, pretrained=True, freeze_backbon
     if checkpoint is not None:
         state_dict = torch.load(checkpoint)
         model.load_state_dict(state_dict)
-
+        print("loaded state dict")
+        
     # Freeze the parameters of the pre-trained layers
     if freeze_backbone:
         for param in model.parameters():

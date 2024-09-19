@@ -5,8 +5,19 @@ test: False
 defaults:
   - evaluation: left_arm
   - training: resnet_linear # info on how the model was trained for eval
+  - data: ft_joints_xpos
   - _self_
 
+logging:
+  model_save_freq: 100  # Frequency to save the model
+
+  wandb_project: ft
+  wandb_mode: online # disabled
+  wandb_tags: []
+
+  run_name: null
+  run_path: null
+  
 hydra:
   run:
     dir: ./eval_logs/${evaluation.name}/${now:%Y-%m-%d-%H%M%S}_model=${training.tag}_startpt=${training.start_from_pretrained}_freezebackbone=${training.freeze_backbone}_lr=${training.lr}nt=${run_notes}
