@@ -19,4 +19,4 @@ logging:
 
 hydra:
   run:
-    dir: ./train_logs/${run_type}/${now:%Y-%m-%d-%H%M%S}_model=${training.tag}_startpt=${training.start_from_pretrained}_freezebackbone=${training.freeze_backbone}_xpos=${data.use_xpos}_lr=${training.lr}nt=${run_notes}
+    dir: ./train_logs/${run_type}/${now:%Y-%m-%d-%H%M%S}_model=${training.tag}_xpos=${data.use_xpos}_data=${data.name}_startpt=${training.start_from_pretrained}_freezebackbone=${training.freeze_backbone}_lr=${training.lr}nt=${run_notes}

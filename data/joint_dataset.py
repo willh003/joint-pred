@@ -21,9 +21,10 @@ def collate_fn_generator(transform):
 
     return collate_fn
 
-def load_joint_dataset(splits=["train", "val"], dataset_path="sharehum/mujoco_ft_v3", use_hf=True, use_xpos=True):
+def load_joint_dataset(splits=["train", "val"], dataset_path="sharehum/mujoco_ft_v3", use_hf=True, use_xpos=True, is_preference_data=True):
     """
     if use_hf: dataset_path will be the hf path
+    if is_preference_data, then the dataset path contains "anchor" , "pos" and "neg" images for each idx. Otherwise, it just contains images
 
     Returns: a list containing splits corresponding to the indicated splits. A split is either an hf dataset or a TwoAFCDatasetMujoco
     """
@@ -59,12 +60,15 @@ def load_joint_dataset(splits=["train", "val"], dataset_path="sharehum/mujoco_ft
             split_dict[split] = dataset
     else:
         for split in splits:
-            dataset = TwoAFCJointDatasetMujoco(dataset_path, split=split, include_ids=True, use_xpos=use_xpos)
+            if is_preference_data:
+                dataset = TwoAFCJointDatasetMujocoPreferences(dataset_path, split=split, include_ids=True, use_xpos=use_xpos)
+            else:
+                dataset = TwoAFCJointDatasetMujocoImages(dataset_path, split=split, include_ids=True, use_xpos=use_xpos)
             split_dict[split] = dataset
     
     return split_dict
 
-class TwoAFCJointDatasetMujoco(Dataset):
+class TwoAFCJointDatasetMujocoPreferences(Dataset):
     def __init__(self, root_dir: str, split: str = "train", load_size: int = 224,
                  interpolation: transforms.InterpolationMode = transforms.InterpolationMode.BICUBIC,
                  use_xpos=True, **kwargs):
@@ -149,7 +153,7 @@ class TwoAFCJointDatasetMujoco(Dataset):
         """
         if split_ref.startswith("finetuning/data/"):
             ref = split_ref.replace("finetuning/data/", "")
-            return os.path.join(self.root_dir, ref)
+            return os.path.join("/share/portal/aw588/finetuning/data/", ref)
         return split_ref
 
     def check(self):
@@ -163,3 +167,61 @@ class TwoAFCJointDatasetMujoco(Dataset):
             assert os.path.exists(anchor_path), f"Error: anchor path not found for i={idx}: {anchor_path}"
             assert os.path.exists(pos_path), f"Error: pos path not found for i={idx}: {pos_path}"
             assert os.path.exists(neg_path), f"Error: neg path not found for i={idx}: {neg_path}"
+
+
+
+class TwoAFCJointDatasetMujocoImages(TwoAFCJointDatasetMujocoPreferences):
+    def __init__(self, root_dir: str, split: str = "train", load_size: int = 224,
+                 interpolation: transforms.InterpolationMode = transforms.InterpolationMode.BICUBIC,
+                 use_xpos=True, **kwargs):
+        """
+        use_xpos: if true, use global world coords. Else, use qpos (relative rotations)
+        """
+        
+        self.root_dir = root_dir
+        self.split = split
+        self.load_size = load_size
+        self.interpolation = interpolation
+        self.use_xpos=use_xpos
+
+        if self.split in ["train", "val", "test"]:
+            with open(op.join(self.root_dir, f"{self.split}.json"), "r") as f:
+                self.split_file = json.load(f)
+        else:
+            raise ValueError(f'Invalid split: {split}')
+                    
+    def __len__(self):
+        return len(self.split_file) # 3 samples per item in the split file (for the purposes of joints)
+
+    def __getitem__(self, idx):
+        
+        img_path = self.get_image_path_from_split_ref(self.split_file[idx])
+
+        image = Image.open(img_path)
+
+        if self.use_xpos:
+            joint_pos = np.load(self._convert_image_path_to_geom_xpos_path(img_path))
+            joint_pos = joint_pos - joint_pos[1] # center xpos on the torso
+        else:
+            # do not center qpos
+            joint_pos = np.load(self._convert_image_path_to_qpos_path(img_path))
+            joint_pos = np.expand_dims(joint_pos, axis=1)
+        # IMPORTANT
+        # Get the positions relative to the torso
+        # In v3 mujoco, this has already been done for sequence data, but not the rest
+
+        item = {
+            'image': image,
+            'joint_pos': joint_pos
+            }
+        return item
+
+    def get_image_path_from_split_ref(self, split_ref):
+        """
+        weird hack because some paths are full (like '/share/portal/aw588/finetuning/data/v3_body_distortion_arm/anchor/1604_pose.png')
+        and some look like 'finetuning/data/v3_body_distortion_arm/anchor/1604_pose.png'   
+        """
+        if split_ref.startswith("finetuning/data//"):
+            ref = split_ref.replace("finetuning/data//", "")
+            return os.path.join("/share/portal/aw588/finetuning/data/", ref)
+        return split_ref

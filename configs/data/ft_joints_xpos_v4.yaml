@@ -1,0 +1,6 @@
+name: joints_xpos_v4
+use_hf: false
+root: /share/portal/aw588/finetuning/data/v4_seq_frame20-30_40-60_all/
+hf_path: sharehum/mujoco_ft_v3
+use_xpos: true
+is_preference_data: true

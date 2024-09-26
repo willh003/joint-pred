@@ -3,3 +3,4 @@ use_hf: false
 root: /share/portal/aw588/finetuning/data 
 hf_path: sharehum/mujoco_ft_v3
 use_xpos: true
+is_preference_data: true

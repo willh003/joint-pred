@@ -1,6 +1,6 @@
-name: joints_qpos_seq
+name: joints_xpos_seq
 use_hf: false
 root: /share/portal/wph52/models/joint_pred/data/seq_data
 hf_path: sharehum/mujoco_ft_v3
-use_xpos: false
+use_xpos: true
 is_preference_data: true

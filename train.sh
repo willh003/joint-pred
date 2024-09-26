@@ -1,8 +1,6 @@
-#python -m training.train_joint_pos
+# python -m training.train_joint_pos "data=ft_joints_xpos_seq" "data.use_xpos=True" "training.output_dim=54" "training.freeze_backbone=True" "training.batch_size=8" "training.lr=.008" "training.epochs=100" run_notes="uneven_weight_9010"
 
-
-python -m training.train_joint_pos "data=ft_joints_qpos_seq" "training.output_dim=22" "training.batch_size=16" "training.lr=.1" "training.epochs=100" 
-
+python -m training.train_joint_pos "data=ft_joints_xpos_seq" "training.output_dim=54" "training.freeze_backbone=False" "training.batch_size=8" "training.lr=.008" "training.epochs=100" 
 
 #python -m training.train_joint_pos "data=ft_joints_qpos" "training.output_dim=22" "training.lr=.005" "training.epochs=100" "run_notes=mini_dataset"
 
